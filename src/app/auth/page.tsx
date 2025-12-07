@@ -13,14 +13,6 @@ export default function AuthPage() {
   const [address, setAddress] = useState('')
   const [error, setError] = useState<string|undefined>()
   const [loading, setLoading] = useState(false)
-  
-  // New state for first-time Google user
-  const [showGoogleDetailsForm, setShowGoogleDetailsForm] = useState(false)
-  const [googleUserDetails, setGoogleUserDetails] = useState<{
-    uid: string;
-    email: string | null;
-    displayName: string | null;
-  } | null>(null)
 
   async function handleGoogleSignIn() {
     setError(undefined)
@@ -29,51 +21,23 @@ export default function AuthPage() {
       const provider = new GoogleAuthProvider()
       const result = await signInWithPopup(auth, provider)
       
-      // Check if user document exists
+      // Check if user document exists, if not create one
       const userDoc = await getDoc(doc(db, 'users', result.user.uid))
-      
       if (!userDoc.exists()) {
-        // First-time user - show details form
-        setGoogleUserDetails({
-          uid: result.user.uid,
+        await setDoc(doc(db, 'users', result.user.uid), {
+          name: result.user.displayName || 'User',
+          phone: phone || '',
+          address: address || '',
           email: result.user.email,
-          displayName: result.user.displayName
+          createdAt: Date.now(),
+          role: 'customer'
         })
-        setName(result.user.displayName || '')
-        setShowGoogleDetailsForm(true)
-        setLoading(false)
-      } else {
-        // Existing user - proceed to products
-        location.href = '/products'
       }
-    } catch (err: any) {
-      setError(err.message)
-      setLoading(false)
-    }
-  }
-
-  async function handleGoogleDetailsSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    
-    if (!googleUserDetails) return
-    
-    setError(undefined)
-    setLoading(true)
-    
-    try {
-      // Create user profile with collected details
-      await setDoc(doc(db, 'users', googleUserDetails.uid), {
-        name: name.trim() || googleUserDetails.displayName || 'User',
-        phone: phone.trim(),
-        address: address.trim(),
-        email: googleUserDetails.email,
-        createdAt: Date.now(),
-        role: 'customer'
-      })
       
       location.href = '/products'
     } catch (err: any) {
       setError(err.message)
+    } finally {
       setLoading(false)
     }
   }
@@ -99,108 +63,11 @@ export default function AuthPage() {
     }
   }
 
-  // Show Google details collection form for first-time users
-  if (showGoogleDetailsForm && googleUserDetails) {
-    return (
-      <div className="min-h-[80vh] flex items-center justify-center">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-forest/10">
-          {/* Header */}
-          <div className="text-center mb-8">
-            <div className="inline-block mb-4">
-              <span className="text-6xl">📝</span>
-            </div>
-            <h2 className="font-display text-3xl text-forest mb-2">
-              Complete Your Profile
-            </h2>
-            <p className="text-slate text-sm">
-              We need a few more details to complete your registration
-            </p>
-          </div>
-
-          {/* User Info from Google */}
-          <div className="bg-cream p-4 rounded-xl mb-6">
-            <p className="text-sm text-forest">
-              <strong>Signed in as:</strong> {googleUserDetails.email}
-            </p>
-          </div>
-
-          {/* Details Collection Form */}
-          <form className="space-y-4" onSubmit={handleGoogleDetailsSubmit}>
-            <div>
-              <label className="block text-sm font-medium text-forest mb-1.5">
-                Full Name <span className="text-rose">*</span>
-              </label>
-              <input 
-                required 
-                placeholder="Enter your full name" 
-                className="w-full border-2 border-forest/20 rounded-xl p-3 focus:outline-none focus:border-forest transition-colors" 
-                value={name} 
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)} 
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-forest mb-1.5">
-                Phone Number <span className="text-rose">*</span>
-              </label>
-              <input 
-                required 
-                type="tel"
-                placeholder="10-digit mobile number" 
-                className="w-full border-2 border-forest/20 rounded-xl p-3 focus:outline-none focus:border-forest transition-colors" 
-                value={phone} 
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPhone(e.target.value)} 
-                pattern="[0-9]{10}"
-                title="Please enter a valid 10-digit phone number"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-forest mb-1.5">
-                Delivery Address <span className="text-rose">*</span>
-              </label>
-              <textarea 
-                required 
-                placeholder="Street address, apartment, city, pincode" 
-                className="w-full border-2 border-forest/20 rounded-xl p-3 focus:outline-none focus:border-forest transition-colors min-h-[100px]" 
-                value={address} 
-                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setAddress(e.target.value)} 
-              />
-            </div>
-
-            {error && (
-              <div className="p-3 bg-rose/10 border-2 border-rose/30 rounded-xl">
-                <p className="text-rose text-sm">{error}</p>
-              </div>
-            )}
-
-            <button 
-              type="submit" 
-              disabled={loading}
-              className="w-full px-4 py-3.5 bg-forest text-cream rounded-xl font-medium hover:bg-forest-600 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? 'Saving...' : '✓ Complete Registration'}
-            </button>
-          </form>
-
-          {/* Note */}
-          <p className="text-xs text-slate text-center mt-4">
-            These details are required for order processing and delivery
-          </p>
-        </div>
-      </div>
-    )
-  }
-
-  // Regular auth form
   return (
     <div className="min-h-[80vh] flex items-center justify-center">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-forest/10">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="inline-block mb-4">
-            <span className="text-6xl">🧁</span>
-          </div>
           <h2 className="font-display text-3xl text-forest mb-2">
             {mode === 'signup' ? 'Join Aditi\'s Bakery' : 'Welcome Back'}
           </h2>
@@ -215,7 +82,7 @@ export default function AuthPage() {
         <button
           onClick={handleGoogleSignIn}
           disabled={loading}
-          className="w-full flex items-center justify-center gap-3 px-4 py-3.5 border-2 border-forest/20 rounded-xl hover:bg-forest/5 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md mb-6"
+          className="w-full flex items-center justify-center gap-3 px-4 py-3 border-2 border-forest/20 rounded-xl hover:bg-forest/5 transition-all disabled:opacity-50 disabled:cursor-not-allowed mb-6"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">
             <path
@@ -306,10 +173,9 @@ export default function AuthPage() {
                   onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setAddress(e.target.value)} 
                 />
               </div>
-              <div className="text-xs text-slate bg-cream p-3 rounded-lg flex items-start gap-2">
-                <span>💡</span>
-                <span>Email is optional. If omitted, we'll create a secure account for you.</span>
-              </div>
+              <p className="text-xs text-slate bg-cream p-2 rounded-lg">
+                💡 Email is optional. If omitted, we'll create a secure account for you.
+              </p>
             </>
           )}
           
@@ -331,7 +197,7 @@ export default function AuthPage() {
             <label className="block text-sm font-medium text-forest mb-1.5">Password</label>
             <input 
               type="password" 
-              placeholder={mode === 'signup' ? 'Create a secure password' : 'Enter your password'} 
+              placeholder="Create a secure password" 
               className="w-full border-2 border-forest/20 rounded-xl p-3 focus:outline-none focus:border-forest transition-colors" 
               value={password} 
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)} 
